@@ -44,6 +44,22 @@ const Creator = () => {
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      // Create image to get dimensions of first photo
+      const img = new Image();
+      img.onload = () => {
+        const newSize = {
+          width: img.width,
+          height: img.height
+        };
+        setCanvasSize(newSize);
+        setDisplaySize(newSize);
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(imageFiles[0]);
+    }
+    
     setSelectedFiles(imageFiles);
   };
 
