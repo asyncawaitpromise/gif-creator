@@ -1,6 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useDebounce } from '../hooks/useDebounce';
+import React, { useState, useRef, useEffect } from 'react';
 import { useResize } from '../hooks/useResize';
 import Canvas from '../components/canvas/Canvas';
 import CanvasSizeControls from '../components/controls/CanvasSizeControls';
@@ -17,7 +15,7 @@ const Creator = () => {
   const containerRef = useRef(null);
   const [imageFitModes, setImageFitModes] = useState({});
 
-  const { handleResizeStart, handleResizeMove, handleResizeEnd, resizeStartSize } = useResize(canvasSize);
+  const { handleResizeStart, resizeStartSize } = useResize(canvasSize);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -131,55 +129,6 @@ const Creator = () => {
     };
     setDisplaySize(newSize); // Update display immediately
     setCanvasSize(newSize); // Debounce the actual canvas update
-  };
-
-  const renderThumbnail = (file, index) => {
-    const thumbnailUrl = URL.createObjectURL(file);
-    return (
-      <Draggable key={index} draggableId={`thumb-${index}`} index={index}>
-        {(provided) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-            className={`
-              relative cursor-pointer rounded-lg overflow-hidden
-              hover:ring-2 hover:ring-primary transition-all
-              ${currentImageIndex === index ? 'ring-2 ring-primary' : ''}
-            `}
-          >
-            <div 
-              onClick={() => setCurrentImageIndex(index)}
-              className="w-24 h-24"
-            >
-              <img 
-                src={thumbnailUrl}
-                alt={`Thumbnail ${index + 1}`}
-                className="w-full h-full object-cover"
-                onLoad={() => URL.revokeObjectURL(thumbnailUrl)}
-              />
-            </div>
-            <label className="absolute top-1 right-1 cursor-pointer">
-              <input
-                type="checkbox"
-                className="
-                  checkbox checkbox-primary checkbox-xs 
-                  [--chkfg:transparent] checked:rounded-none
-                  "
-                checked={imageFitModes[index] === 'contain'}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setImageFitModes(prev => ({
-                    ...prev,
-                    [index]: e.target.checked ? 'contain' : 'cover'
-                  }));
-                }}
-              />
-            </label>
-          </div>
-        )}
-      </Draggable>
-    );
   };
 
   return (
