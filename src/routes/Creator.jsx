@@ -1,46 +1,23 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-
-// Custom debounce hook
-const useDebounce = (callback, delay) => {
-  const timeoutRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  return useCallback((...args) => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  }, [callback, delay]);
-};
+import { useDebounce } from '../hooks/useDebounce';
+import { useResize } from '../hooks/useResize';
+import Canvas from '../components/canvas/Canvas';
+import CanvasSizeControls from '../components/controls/CanvasSizeControls';
+import ImageNavigation from '../components/controls/ImageNavigation';
+import ThumbnailList from '../components/thumbnails/ThumbnailList';
+import FileInput from '../components/FileInput';
 
 const Creator = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
-  const [displaySize, setDisplaySize] = useState({ width: 800, height: 600 }); // For immediate UI feedback
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
-  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
-  const [resizeCorner, setResizeCorner] = useState(null);
+  const [displaySize, setDisplaySize] = useState({ width: 800, height: 600 });
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [imageFitModes, setImageFitModes] = useState({});
 
-  // Debounced setCanvasSize
-  const debouncedSetCanvasSize = useDebounce((newSize) => {
-    setCanvasSize(newSize);
-  }, 150);
+  const { handleResizeStart, handleResizeMove, handleResizeEnd, resizeStartSize } = useResize(canvasSize);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -106,6 +83,11 @@ const Creator = () => {
     }
   }, [selectedFiles, currentImageIndex, canvasSize, imageFitModes]);
 
+  useEffect(() => {
+    setDisplaySize(resizeStartSize);
+    setCanvasSize(resizeStartSize);
+  }, [resizeStartSize]);
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
     
@@ -148,7 +130,7 @@ const Creator = () => {
       [dimension]: parseInt(value) || 0
     };
     setDisplaySize(newSize); // Update display immediately
-    debouncedSetCanvasSize(newSize); // Debounce the actual canvas update
+    setCanvasSize(newSize); // Debounce the actual canvas update
   };
 
   const renderThumbnail = (file, index) => {
@@ -200,218 +182,51 @@ const Creator = () => {
     );
   };
 
-  const handleResizeStart = (e, corner) => {
-    e.preventDefault();
-    const rect = containerRef.current.getBoundingClientRect();
-    setResizeStartPos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    });
-    setResizeStartSize({ ...canvasSize });
-    setResizeCorner(corner);
-    setIsResizing(true);
-  };
-
-  const handleResizeMove = (e) => {
-    if (!isResizing || !containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-    const deltaX = currentX - resizeStartPos.x;
-    const deltaY = currentY - resizeStartPos.y;
-
-    let newWidth = resizeStartSize.width;
-    let newHeight = resizeStartSize.height;
-
-    switch (resizeCorner) {
-      case 'se':
-        newWidth = Math.max(100, resizeStartSize.width + deltaX);
-        newHeight = Math.max(100, resizeStartSize.height + deltaY);
-        break;
-      case 'sw':
-        newWidth = Math.max(100, resizeStartSize.width - deltaX);
-        newHeight = Math.max(100, resizeStartSize.height + deltaY);
-        break;
-      case 'ne':
-        newWidth = Math.max(100, resizeStartSize.width + deltaX);
-        newHeight = Math.max(100, resizeStartSize.height - deltaY);
-        break;
-      case 'nw':
-        newWidth = Math.max(100, resizeStartSize.width - deltaX);
-        newHeight = Math.max(100, resizeStartSize.height - deltaY);
-        break;
-    }
-
-    const newSize = {
-      width: Math.round(newWidth),
-      height: Math.round(newHeight)
-    };
-    
-    setDisplaySize(newSize); // Update display immediately
-    debouncedSetCanvasSize(newSize); // Debounce the actual canvas update
-  };
-
-  const handleResizeEnd = () => {
-    setIsResizing(false);
-    setResizeCorner(null);
-  };
-
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-  }, [isResizing, resizeStartPos, resizeStartSize, resizeCorner]);
-
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Creator</h1>
       
       <div className="flex flex-col gap-4">
-
-        {/* Thumbnail Preview Area */}
         {selectedFiles.length > 0 && (
-          <div className="mt-4">
-            <h2 className="text-lg font-semibold mb-2">Selected Photos</h2>
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="thumbnails" direction="horizontal">
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="flex flex-wrap gap-2 p-2 border border-base-300 rounded-lg overflow-x-auto min-h-[120px]"
-                  >
-                    {selectedFiles.map((file, index) => renderThumbnail(file, index))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-          </div>
+          <ThumbnailList
+            files={selectedFiles}
+            currentIndex={currentImageIndex}
+            fitModes={imageFitModes}
+            onDragEnd={handleDragEnd}
+            onSelect={setCurrentImageIndex}
+            onFitModeChange={(index, mode) => 
+              setImageFitModes(prev => ({ ...prev, [index]: mode }))
+            }
+          />
         )}
         
-        {/* File Input */}
-        <div className="form-control w-full max-w-xs">
-          <label className="label">
-            <span className="label-text">Choose photos</span>
-          </label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="file-input file-input-bordered w-full max-w-xs"
-          />
-        </div>
+        <FileInput onFileSelect={handleFileSelect} />
 
-        {/* Canvas Size Controls */}
         {selectedFiles.length > 0 && (
-          <div className="flex gap-6 items-end">
-            <div className="form-control w-full">
-              <label className="label">
-                <span className="label-text">Canvas Width: {displaySize.width}px</span>
-              </label>
-              <input
-                type="range"
-                min="100"
-                max="2000"
-                value={displaySize.width}
-                onChange={(e) => handleSizeChange('width', e.target.value)}
-                className="range range-primary"
-                step="10"
-              />
-              <div className="w-full flex justify-between text-xs px-2 mt-1">
-                <span>100px</span>
-                <span>2000px</span>
-              </div>
-            </div>
-            <div className="form-control w-full">
-              <label className="label">
-                <span className="label-text">Canvas Height: {displaySize.height}px</span>
-              </label>
-              <input
-                type="range"
-                min="100"
-                max="2000"
-                value={displaySize.height}
-                onChange={(e) => handleSizeChange('height', e.target.value)}
-                className="range range-primary"
-                step="10"
-              />
-              <div className="w-full flex justify-between text-xs px-2 mt-1">
-                <span>100px</span>
-                <span>2000px</span>
-              </div>
-            </div>
-          </div>
+          <>
+            <CanvasSizeControls
+              displaySize={displaySize}
+              onSizeChange={handleSizeChange}
+            />
+
+            <ImageNavigation
+              currentIndex={currentImageIndex}
+              totalImages={selectedFiles.length}
+              onPrevious={() => setCurrentImageIndex(prev => Math.max(0, prev - 1))}
+              onNext={() => setCurrentImageIndex(prev => 
+                Math.min(selectedFiles.length - 1, prev + 1)
+              )}
+            />
+
+            <Canvas
+              canvasRef={canvasRef}
+              containerRef={containerRef}
+              canvasSize={canvasSize}
+              handleResizeStart={handleResizeStart}
+              selectedFiles={selectedFiles}
+            />
+          </>
         )}
-
-        {/* Image Navigation */}
-        {selectedFiles.length > 0 && (
-          <div className="flex gap-2 items-center">
-            <button
-              className="btn btn-primary"
-              onClick={() => setCurrentImageIndex(prev => Math.max(0, prev - 1))}
-              disabled={currentImageIndex === 0}
-            >
-              Previous
-            </button>
-            <span className="text-sm">
-              Image {currentImageIndex + 1} of {selectedFiles.length}
-            </span>
-            <button
-              className="btn btn-primary"
-              onClick={() => setCurrentImageIndex(prev => Math.min(selectedFiles.length - 1, prev + 1))}
-              disabled={currentImageIndex === selectedFiles.length - 1}
-            >
-              Next
-            </button>
-          </div>
-        )}
-
-        {/* Canvas Display */}
-        <div 
-          ref={containerRef}
-          className="border border-base-300 rounded-lg p-4 overflow-auto max-h-full relative"
-        >
-          <canvas
-            ref={canvasRef}
-            className="max-w-full max-h-full"
-            style={{ background: '#f0f0f0' }}
-          />
-          
-          {/* Resize Handles */}
-          {selectedFiles.length > 0 && (
-            <>
-              <div
-                className="absolute w-3 h-3 bg-primary cursor-nw-resize hover:scale-125 transition-transform"
-                style={{ top: '0.5rem', left: '0.5rem' }}
-                onMouseDown={(e) => handleResizeStart(e, 'nw')}
-              />
-              <div
-                className="absolute w-3 h-3 bg-primary cursor-ne-resize hover:scale-125 transition-transform"
-                style={{ top: '0.5rem', right: '0.5rem' }}
-                onMouseDown={(e) => handleResizeStart(e, 'ne')}
-              />
-              <div
-                className="absolute w-3 h-3 bg-primary cursor-sw-resize hover:scale-125 transition-transform"
-                style={{ bottom: '0.5rem', left: '0.5rem' }}
-                onMouseDown={(e) => handleResizeStart(e, 'sw')}
-              />
-              <div
-                className="absolute w-3 h-3 bg-primary cursor-se-resize hover:scale-125 transition-transform"
-                style={{ bottom: '0.5rem', right: '0.5rem' }}
-                onMouseDown={(e) => handleResizeStart(e, 'se')}
-              />
-            </>
-          )}
-        </div>
-
       </div>
     </div>
   );
