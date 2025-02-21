@@ -14,6 +14,9 @@ const Creator = () => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [imageFitModes, setImageFitModes] = useState({});
+  const [generatedGif, setGeneratedGif] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   const { handleResizeStart, resizeStartSize } = useResize(canvasSize);
 
@@ -131,6 +134,90 @@ const Creator = () => {
     setCanvasSize(newSize); // Debounce the actual canvas update
   };
 
+  const generateGif = async () => {
+    console.log('Starting GIF generation...');
+    if (!canvasRef.current || selectedFiles.length === 0) {
+      console.log('Early return - missing canvas or files');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    try {
+      console.log('Creating offscreen canvas...');
+      const offscreenCanvas = document.createElement('canvas');
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+      offscreenCanvas.width = canvasSize.width;
+      offscreenCanvas.height = canvasSize.height;
+      console.log('Canvas created with dimensions:', canvasSize);
+
+      console.log('Initializing encoder...');
+      const encoder = new window.GIFEncoder(); // Use from window since it's loaded via script tag
+      console.log('Encoder created:', encoder);
+      
+      console.log('Setting up encoder...');
+      encoder.setRepeat(0); // 0 = loop forever
+      encoder.setDelay(500); // 500ms delay between frames
+      encoder.setSize(canvasSize.width, canvasSize.height);
+      encoder.start();
+      console.log('Encoder started');
+
+      console.log('Processing images...');
+      for (let i = 0; i < selectedFiles.length; i++) {
+        console.log(`Processing image ${i + 1}/${selectedFiles.length}`);
+        const file = selectedFiles[i];
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            console.log(`Image ${i + 1} loaded:`, img.width, 'x', img.height);
+            offscreenCtx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+            
+            const fitMode = imageFitModes[i] === 'contain' ? Math.min : Math.max;
+            const scale = fitMode(
+              canvasSize.width / img.width,
+              canvasSize.height / img.height
+            );
+            
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            const x = (canvasSize.width - scaledWidth) / 2;
+            const y = (canvasSize.height - scaledHeight) / 2;
+            
+            console.log(`Drawing image ${i + 1} at:`, x, y, scaledWidth, scaledHeight);
+            offscreenCtx.drawImage(img, x, y, scaledWidth, scaledHeight);
+            encoder.addFrame(offscreenCtx);
+            URL.revokeObjectURL(img.src);
+            resolve();
+          };
+          img.onerror = (error) => {
+            console.error(`Error loading image ${i + 1}:`, error);
+            resolve();
+          };
+          img.src = URL.createObjectURL(file);
+        });
+        
+        setGenerationProgress(Math.round((i + 1) / selectedFiles.length * 100));
+      }
+
+      console.log('Finishing encoder...');
+      encoder.finish();
+      console.log('Getting binary data...');
+      const binary_gif = encoder.stream().getData();
+      console.log('Creating data URL...');
+      const data_url = 'data:image/gif;base64,' + window.encode64(binary_gif);
+      console.log('GIF URL created:', data_url);
+      
+      setGeneratedGif(data_url);
+    } catch (error) {
+      console.error('Error in GIF generation:', error);
+      console.error('Error stack:', error.stack);
+    } finally {
+      console.log('Generation process complete');
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Creator</h1>
@@ -174,6 +261,34 @@ const Creator = () => {
               handleResizeStart={handleResizeStart}
               selectedFiles={selectedFiles}
             />
+
+            <div className="flex flex-col gap-4">
+              <button 
+                className={`btn btn-primary ${isGenerating ? 'loading' : ''}`}
+                onClick={generateGif}
+                disabled={isGenerating}
+              >
+                {isGenerating ? `Generating GIF (${generationProgress}%)` : 'Generate GIF'}
+              </button>
+
+              {generatedGif && (
+                <div className="flex flex-col items-center gap-4">
+                  <h3 className="text-xl font-semibold">Generated GIF Preview</h3>
+                  <img 
+                    src={generatedGif} 
+                    alt="Generated GIF" 
+                    className="max-w-full border rounded-lg shadow-lg"
+                  />
+                  <a 
+                    href={generatedGif} 
+                    download="generated.gif"
+                    className="btn btn-secondary"
+                  >
+                    Download GIF
+                  </a>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
