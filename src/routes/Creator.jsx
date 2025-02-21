@@ -97,20 +97,38 @@ const Creator = () => {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     
-    // Reorder fit modes
+    // Fix the fit modes reordering logic
     const newFitModes = {};
+    const oldFitModes = { ...imageFitModes }; // Create a copy of current fit modes
+    
     items.forEach((_, index) => {
-      if (index >= result.destination.index) {
-        newFitModes[index] = imageFitModes[index - 1] || 'contain';
-      } else if (index < result.source.index) {
-        newFitModes[index] = imageFitModes[index] || 'contain';
+      if (index === result.destination.index) {
+        // Keep the original fit mode for the dragged item
+        newFitModes[index] = oldFitModes[result.source.index];
+      } else if (
+        result.destination.index < result.source.index && // Moving item forward
+        index >= result.destination.index &&
+        index < result.source.index
+      ) {
+        // Shift items back
+        newFitModes[index] = oldFitModes[index + 1];
+      } else if (
+        result.destination.index > result.source.index && // Moving item backward
+        index > result.source.index &&
+        index <= result.destination.index
+      ) {
+        // Shift items forward
+        newFitModes[index] = oldFitModes[index - 1];
       } else {
-        newFitModes[index] = imageFitModes[result.source.index] || 'contain';
+        // Keep the same fit mode for unaffected items
+        newFitModes[index] = oldFitModes[index];
       }
     });
     
     setImageFitModes(newFitModes);
     setSelectedFiles(items);
+    
+    // Update current image index if needed
     if (currentImageIndex === result.source.index) {
       setCurrentImageIndex(result.destination.index);
     } else if (

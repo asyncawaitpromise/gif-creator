@@ -10,6 +10,12 @@ const ThumbnailList = ({
   onSelect,
   onFitModeChange
 }) => {
+  const handleFitModeChange = (index, mode, event) => {
+    // Only stop propagation, don't prevent default
+    event?.stopPropagation();
+    onFitModeChange(index, mode);
+  };
+
   return (
     <div className="mt-4">
       <h2 className="text-lg font-semibold mb-2">Selected Photos</h2>
@@ -29,7 +35,7 @@ const ThumbnailList = ({
                   isSelected={currentIndex === index}
                   fitMode={fitModes[index]}
                   onSelect={() => onSelect(index)}
-                  onFitModeChange={(mode) => onFitModeChange(index, mode)}
+                  onFitModeChange={(mode, event) => handleFitModeChange(index, mode, event)}
                 />
               ))}
               {provided.placeholder}

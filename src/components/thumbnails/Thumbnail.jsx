@@ -11,6 +11,17 @@ const Thumbnail = ({
 }) => {
   const thumbnailUrl = URL.createObjectURL(file);
 
+  const handleCheckboxChange = (e) => {
+    // Only stop propagation, don't prevent default
+    e.stopPropagation();
+    
+    // Pass both the new mode and the event
+    onFitModeChange(
+      e.target.checked ? 'contain' : 'cover',
+      e
+    );
+  };
+
   return (
     <Draggable draggableId={`thumb-${index}`} index={index}>
       {(provided) => (
@@ -35,17 +46,18 @@ const Thumbnail = ({
               onLoad={() => URL.revokeObjectURL(thumbnailUrl)}
             />
           </div>
-          <label className="absolute top-1 right-1 cursor-pointer">
+          <div 
+            className="absolute top-1 right-1"
+            onClick={e => e.stopPropagation()}
+          >
             <input
               type="checkbox"
               className="checkbox checkbox-primary checkbox-xs [--chkfg:transparent] checked:rounded-none"
               checked={fitMode === 'contain'}
-              onChange={(e) => {
-                e.stopPropagation();
-                onFitModeChange(e.target.checked ? 'contain' : 'cover');
-              }}
+              onChange={handleCheckboxChange}
+              onClick={e => e.stopPropagation()}
             />
-          </label>
+          </div>
         </div>
       )}
     </Draggable>
