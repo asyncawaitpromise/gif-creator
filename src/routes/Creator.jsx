@@ -35,6 +35,7 @@ const Creator = () => {
   const [resizeCorner, setResizeCorner] = useState(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const [imageFitModes, setImageFitModes] = useState({});
 
   // Debounced setCanvasSize
   const debouncedSetCanvasSize = useDebounce((newSize) => {
@@ -46,7 +47,6 @@ const Creator = () => {
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     
     if (imageFiles.length > 0) {
-      // Create image to get dimensions of first photo
       const img = new Image();
       img.onload = () => {
         const newSize = {
@@ -58,6 +58,13 @@ const Creator = () => {
         URL.revokeObjectURL(img.src);
       };
       img.src = URL.createObjectURL(imageFiles[0]);
+
+      // Initialize fit modes to 'cover' by default
+      const newFitModes = {};
+      imageFiles.forEach((_, index) => {
+        newFitModes[index] = 'cover'; // changed from 'contain' to 'cover'
+      });
+      setImageFitModes(newFitModes);
     }
     
     setSelectedFiles(imageFiles);
@@ -69,15 +76,14 @@ const Creator = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Set canvas size from state
     canvas.width = canvasSize.width;
     canvas.height = canvasSize.height;
     
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Calculate scaling to contain image within canvas while maintaining aspect ratio
-    const scale = Math.min(
+    // Reverse the logic: checked = contain, unchecked = cover
+    const fitMode = imageFitModes[currentImageIndex] === 'contain' ? Math.min : Math.max;
+    const scale = fitMode(
       canvas.width / image.width,
       canvas.height / image.height
     );
@@ -87,7 +93,6 @@ const Creator = () => {
     const x = (canvas.width - scaledWidth) / 2;
     const y = (canvas.height - scaledHeight) / 2;
     
-    // Draw image with contain behavior
     ctx.drawImage(image, x, y, scaledWidth, scaledHeight);
   };
 
@@ -99,7 +104,7 @@ const Creator = () => {
       image.src = URL.createObjectURL(currentFile);
       return () => URL.revokeObjectURL(image.src);
     }
-  }, [selectedFiles, currentImageIndex, canvasSize]);
+  }, [selectedFiles, currentImageIndex, canvasSize, imageFitModes]);
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -108,6 +113,19 @@ const Creator = () => {
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     
+    // Reorder fit modes
+    const newFitModes = {};
+    items.forEach((_, index) => {
+      if (index >= result.destination.index) {
+        newFitModes[index] = imageFitModes[index - 1] || 'contain';
+      } else if (index < result.source.index) {
+        newFitModes[index] = imageFitModes[index] || 'contain';
+      } else {
+        newFitModes[index] = imageFitModes[result.source.index] || 'contain';
+      }
+    });
+    
+    setImageFitModes(newFitModes);
     setSelectedFiles(items);
     if (currentImageIndex === result.source.index) {
       setCurrentImageIndex(result.destination.index);
@@ -142,19 +160,37 @@ const Creator = () => {
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            onClick={() => setCurrentImageIndex(index)}
             className={`
               relative cursor-pointer rounded-lg overflow-hidden
               hover:ring-2 hover:ring-primary transition-all
               ${currentImageIndex === index ? 'ring-2 ring-primary' : ''}
             `}
           >
-            <img 
-              src={thumbnailUrl}
-              alt={`Thumbnail ${index + 1}`}
-              className="w-24 h-24 object-cover"
-              onLoad={() => URL.revokeObjectURL(thumbnailUrl)}
-            />
+            <div 
+              onClick={() => setCurrentImageIndex(index)}
+              className="w-24 h-24"
+            >
+              <img 
+                src={thumbnailUrl}
+                alt={`Thumbnail ${index + 1}`}
+                className="w-full h-full object-cover"
+                onLoad={() => URL.revokeObjectURL(thumbnailUrl)}
+              />
+            </div>
+            <label className="absolute top-1 right-1 cursor-pointer">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-primary checkbox-xs"
+                checked={imageFitModes[index] === 'contain'}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setImageFitModes(prev => ({
+                    ...prev,
+                    [index]: e.target.checked ? 'contain' : 'cover'
+                  }));
+                }}
+              />
+            </label>
           </div>
         )}
       </Draggable>
