@@ -31,8 +31,8 @@ const Creator = () => {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Calculate scaling and position to cover canvas while maintaining aspect ratio
-    const scale = Math.max(
+    // Calculate scaling to contain image within canvas while maintaining aspect ratio
+    const scale = Math.min(
       canvas.width / image.width,
       canvas.height / image.height
     );
@@ -42,7 +42,7 @@ const Creator = () => {
     const x = (canvas.width - scaledWidth) / 2;
     const y = (canvas.height - scaledHeight) / 2;
     
-    // Draw image with cover behavior
+    // Draw image with contain behavior
     ctx.drawImage(image, x, y, scaledWidth, scaledHeight);
   };
 
@@ -219,30 +219,42 @@ const Creator = () => {
 
         {/* Canvas Size Controls */}
         {selectedFiles.length > 0 && (
-          <div className="flex gap-4 items-end">
-            <div className="form-control w-full max-w-xs">
+          <div className="flex gap-6 items-end">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Canvas Width (px)</span>
+                <span className="label-text">Canvas Width: {canvasSize.width}px</span>
               </label>
               <input
-                type="number"
+                type="range"
+                min="100"
+                max="2000"
                 value={canvasSize.width}
                 onChange={(e) => handleSizeChange('width', e.target.value)}
-                className="input input-bordered w-full max-w-xs"
-                min="1"
+                className="range range-primary"
+                step="10"
               />
+              <div className="w-full flex justify-between text-xs px-2 mt-1">
+                <span>100px</span>
+                <span>2000px</span>
+              </div>
             </div>
-            <div className="form-control w-full max-w-xs">
+            <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Canvas Height (px)</span>
+                <span className="label-text">Canvas Height: {canvasSize.height}px</span>
               </label>
               <input
-                type="number"
+                type="range"
+                min="100"
+                max="2000"
                 value={canvasSize.height}
                 onChange={(e) => handleSizeChange('height', e.target.value)}
-                className="input input-bordered w-full max-w-xs"
-                min="1"
+                className="range range-primary"
+                step="10"
               />
+              <div className="w-full flex justify-between text-xs px-2 mt-1">
+                <span>100px</span>
+                <span>2000px</span>
+              </div>
             </div>
           </div>
         )}
