@@ -180,7 +180,10 @@ const Creator = () => {
             <label className="absolute top-1 right-1 cursor-pointer">
               <input
                 type="checkbox"
-                className="checkbox checkbox-primary checkbox-xs"
+                className="
+                  checkbox checkbox-primary checkbox-xs 
+                  [--chkfg:transparent] checked:rounded-none
+                  "
                 checked={imageFitModes[index] === 'contain'}
                 onChange={(e) => {
                   e.stopPropagation();
