@@ -17,6 +17,7 @@ const Creator = () => {
   const [generatedGif, setGeneratedGif] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [frameDelay, setFrameDelay] = useState(500);
 
   const { handleResizeStart, resizeStartSize } = useResize(canvasSize);
 
@@ -158,7 +159,7 @@ const Creator = () => {
       
       console.log('Setting up encoder...');
       encoder.setRepeat(0); // 0 = loop forever
-      encoder.setDelay(500); // 500ms delay between frames
+      encoder.setDelay(frameDelay); // Use the frameDelay state instead of hardcoded 500
       encoder.setSize(canvasSize.width, canvasSize.height);
       encoder.start();
       console.log('Encoder started');
@@ -261,6 +262,27 @@ const Creator = () => {
               handleResizeStart={handleResizeStart}
               selectedFiles={selectedFiles}
             />
+
+            <div className="flex flex-col gap-4 p-4 border rounded-lg bg-base-200">
+              <h3 className="text-lg font-semibold">GIF Options</h3>
+              
+              <div className="flex items-center gap-4">
+                <label className="flex flex-col gap-2">
+                  <span>Frame Duration (ms)</span>
+                  <input
+                    type="number"
+                    min="10"
+                    max="5000"
+                    value={frameDelay}
+                    onChange={(e) => setFrameDelay(Math.max(10, parseInt(e.target.value) || 0))}
+                    className="input input-bordered w-32"
+                  />
+                </label>
+                <div className="text-sm text-base-content/70">
+                  Each frame will show for {frameDelay}ms ({(frameDelay / 1000).toFixed(2)} seconds)
+                </div>
+              </div>
+            </div>
 
             <div className="flex flex-col gap-4">
               <button 
