@@ -1,16 +1,45 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+
+// Custom debounce hook
+const useDebounce = (callback, delay) => {
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return useCallback((...args) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]);
+};
 
 const Creator = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [displaySize, setDisplaySize] = useState({ width: 800, height: 600 }); // For immediate UI feedback
   const [isResizing, setIsResizing] = useState(false);
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
   const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
   const [resizeCorner, setResizeCorner] = useState(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Debounced setCanvasSize
+  const debouncedSetCanvasSize = useDebounce((newSize) => {
+    setCanvasSize(newSize);
+  }, 150);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -80,10 +109,12 @@ const Creator = () => {
   };
 
   const handleSizeChange = (dimension, value) => {
-    setCanvasSize(prev => ({
-      ...prev,
+    const newSize = {
+      ...displaySize,
       [dimension]: parseInt(value) || 0
-    }));
+    };
+    setDisplaySize(newSize); // Update display immediately
+    debouncedSetCanvasSize(newSize); // Debounce the actual canvas update
   };
 
   const renderThumbnail = (file, index) => {
@@ -157,7 +188,13 @@ const Creator = () => {
         break;
     }
 
-    setCanvasSize({ width: Math.round(newWidth), height: Math.round(newHeight) });
+    const newSize = {
+      width: Math.round(newWidth),
+      height: Math.round(newHeight)
+    };
+    
+    setDisplaySize(newSize); // Update display immediately
+    debouncedSetCanvasSize(newSize); // Debounce the actual canvas update
   };
 
   const handleResizeEnd = () => {
@@ -222,13 +259,13 @@ const Creator = () => {
           <div className="flex gap-6 items-end">
             <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Canvas Width: {canvasSize.width}px</span>
+                <span className="label-text">Canvas Width: {displaySize.width}px</span>
               </label>
               <input
                 type="range"
                 min="100"
                 max="2000"
-                value={canvasSize.width}
+                value={displaySize.width}
                 onChange={(e) => handleSizeChange('width', e.target.value)}
                 className="range range-primary"
                 step="10"
@@ -240,13 +277,13 @@ const Creator = () => {
             </div>
             <div className="form-control w-full">
               <label className="label">
-                <span className="label-text">Canvas Height: {canvasSize.height}px</span>
+                <span className="label-text">Canvas Height: {displaySize.height}px</span>
               </label>
               <input
                 type="range"
                 min="100"
                 max="2000"
-                value={canvasSize.height}
+                value={displaySize.height}
                 onChange={(e) => handleSizeChange('height', e.target.value)}
                 className="range range-primary"
                 step="10"
